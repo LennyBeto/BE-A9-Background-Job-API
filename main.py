@@ -15,6 +15,10 @@ class ReportRequest(BaseModel):
     topic: str
 
 
+def call_your_ai_function(topic: str) -> str:
+    return f"Generated report for: {topic}"
+
+
 @app.post("/reports", status_code=202)
 async def create_report(req: ReportRequest):
     if not req.topic:
@@ -47,6 +51,24 @@ async def make_report(ctx: inngest.Context, step: inngest.Step) -> None:
 
     async def build() -> None:
         result = f"Generated report for: {topic}"
+        reports[report_id]["status"] = "done"
+        reports[report_id]["result"] = result
+
+    await step.run("build-report", build)
+
+@inngest_client.create_function(
+    fn_id="make-report",
+    trigger=inngest.TriggerEvent(event="report/requested"),
+    retries=2,
+)
+async def make_report(ctx: inngest.Context, step: inngest.Step) -> None:
+    report_id = ctx.event.data["id"]
+    topic = ctx.event.data["topic"]
+
+    async def build():
+        if topic == "fail":
+            raise Exception("The report oven is broken!")
+        result = call_your_ai_function(topic)
         reports[report_id]["status"] = "done"
         reports[report_id]["result"] = result
 
