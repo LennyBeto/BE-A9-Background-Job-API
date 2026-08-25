@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "inngest-cli": "^1.43.0"
+  }
+}
