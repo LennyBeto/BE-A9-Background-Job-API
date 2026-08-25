@@ -42,19 +42,12 @@ def get_report(report_id: str):
 
 
 @inngest_client.create_function(
-    fn_id="make-report",
-    trigger=inngest.TriggerEvent(event="report/requested"),
+    fn_id="say-hello",
+    trigger=inngest.TriggerEvent(event="app/hello"),
 )
-async def make_report(ctx: inngest.Context, step: inngest.Step) -> None:
-    report_id = ctx.event.data["id"]
-    topic = ctx.event.data["topic"]
+async def say_hello(ctx: inngest.Context, step: inngest.Step) -> None:
+    print(f"Hello from Inngest: {ctx.event.data}")
 
-    async def build() -> None:
-        result = f"Generated report for: {topic}"
-        reports[report_id]["status"] = "done"
-        reports[report_id]["result"] = result
-
-    await step.run("build-report", build)
 
 @inngest_client.create_function(
     fn_id="make-report",
@@ -75,4 +68,15 @@ async def make_report(ctx: inngest.Context, step: inngest.Step) -> None:
     await step.run("build-report", build)
 
 
-inngest.fast_api.serve(app, inngest_client, [make_report])
+@inngest_client.create_function(
+    fn_id="heartbeat",
+    trigger=inngest.TriggerCron(cron="* * * * *"),
+)
+async def heartbeat(ctx: inngest.Context, step: inngest.Step) -> None:
+    pending = sum(1 for r in reports.values() if r["status"] == "pending")
+    done = sum(1 for r in reports.values() if r["status"] == "done")
+    failed = sum(1 for r in reports.values() if r["status"] == "failed")
+    print(f"[heartbeat] pending={pending} done={done} failed={failed}")
+
+
+inngest.fast_api.serve(app, inngest_client, [say_hello, make_report, heartbeat])
